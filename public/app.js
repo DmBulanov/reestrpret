@@ -1,7 +1,7 @@
 // Инициализация Supabase
-const supabaseUrl = 'https://lrqgnyxowgldyeaoajwt.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxycWdueXhvd2dsZHllYW9hand0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NDIzNTgsImV4cCI6MjA2MjExODM1OH0.0weeWdi7n6yavJZoPBYsJdEEIgc1zgPnff3UFbx5vnE';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+// const supabaseUrl = 'https://lrqgnyxowgldyeaoajwt.supabase.co';
+// const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxycWdueXhvd2dsZHllYW9hand0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NDIzNTgsImV4cCI6MjA2MjExODM1OH0.0weeWdi7n6yavJZoPBYsJdEEIgc1zgPnff3UFbx5vnE';
+// const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
 
 // Инициализация DataTable
 let claimsTable = $('#claimsDataTable').DataTable({
@@ -36,51 +36,25 @@ let claimsTable = $('#claimsDataTable').DataTable({
 
 // Загрузка данных из Supabase
 async function loadClaims() {
-    const { data: claims, error } = await supabase
-        .from('claims')
-        .select('*')
-        .order('claim_date', { ascending: false });
+    // const { data: claims, error } = await supabase
+    //     .from('claims')
+    //     .select('*')
+    //     .order('claim_date', { ascending: false });
 
-    if (error) {
-        showAlert('Ошибка при загрузке данных: ' + error.message, 'danger');
-        return;
-    }
+    // if (error) {
+    //     showAlert('Ошибка при загрузке данных: ' + error.message, 'danger');
+    //     return;
+    // }
 
-    claimsTable.clear().rows.add(claims).draw();
+    // claimsTable.clear().rows.add(claims).draw();
+    claimsTable.clear().draw();
 }
 
 // Обработка формы
 $('#claimFormContent').on('submit', async function (e) {
     e.preventDefault();
-    const formData = new FormData(this);
-    const claimData = {};
-    formData.forEach((value, key) => {
-        claimData[key] = value;
-    });
-
-    try {
-        if (claimData.id) {
-            // Обновление существующей претензии
-            const { error } = await supabase
-                .from('claims')
-                .update(claimData)
-                .eq('id', claimData.id);
-
-            if (error) throw error;
-            showAlert('Претензия успешно обновлена', 'success');
-        } else {
-            // Добавление новой претензии
-            const { error } = await supabase
-                .from('claims')
-                .insert([claimData]);
-
-            if (error) throw error;
-            showAlert('Претензия успешно добавлена', 'success');
-        }
-        hideForm();
-    } catch (error) {
-        showAlert('Ошибка: ' + error.message, 'danger');
-    }
+    showAlert('Сохранение временно отключено для доработки проекта', 'warning');
+    hideForm();
 });
 
 // Экспорт в Excel
@@ -107,45 +81,27 @@ $('#cancelForm').on('click', function () {
 
 // Редактирование претензии
 $('#claimsDataTable').on('click', '.edit-claim', async function () {
-    const id = $(this).data('id');
-    const { data: claim, error } = await supabase
-        .from('claims')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-    if (error) {
-        showAlert('Ошибка при загрузке претензии: ' + error.message, 'danger');
-        return;
-    }
-
-    if (claim) {
-        fillForm(claim);
-        showForm();
-    }
+    showAlert('Редактирование временно отключено для доработки проекта', 'warning');
 });
 
 // Удаление претензии
 $('#claimsDataTable').on('click', '.delete-claim', async function () {
-    const id = $(this).data('id');
-    if (confirm('Вы уверены, что хотите удалить эту претензию?')) {
-        const { error } = await supabase
-            .from('claims')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            showAlert('Ошибка при удалении претензии: ' + error.message, 'danger');
-        } else {
-            showAlert('Претензия успешно удалена', 'success');
-        }
-    }
+    showAlert('Удаление временно отключено для доработки проекта', 'warning');
 });
 
 // Вспомогательные функции
 function showForm() {
     $('#claimsTable').hide();
     $('#claimForm').show();
+    // Кастомное сообщение для required-полей (назначается при каждом показе формы)
+    $('#claimFormContent').find('input[required], textarea[required], select[required]').each(function () {
+        $(this).off('invalid').on('invalid', function (e) {
+            this.setCustomValidity('Необходимо заполнить это поле');
+        });
+        $(this).off('input').on('input', function (e) {
+            this.setCustomValidity('');
+        });
+    });
 }
 
 function hideForm() {
@@ -173,6 +129,18 @@ function showAlert(message, type) {
     $('.container-fluid').prepend(alert);
     setTimeout(() => alert.alert('close'), 5000);
 }
+
+// Кастомное сообщение для required-полей (назначается при загрузке страницы)
+$(function () {
+    $('#claimFormContent').find('input[required], textarea[required], select[required]').each(function () {
+        $(this).off('invalid').on('invalid', function (e) {
+            this.setCustomValidity('Необходимо заполнить это поле');
+        });
+        $(this).off('input').on('input', function (e) {
+            this.setCustomValidity('');
+        });
+    });
+});
 
 // Загрузка данных при запуске
 loadClaims(); 
