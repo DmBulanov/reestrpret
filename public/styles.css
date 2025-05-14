@@ -1,13 +1,19 @@
 .navbar {
     margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    z-index: 1100;
 }
 
 .card {
+    background: #fff;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 8px;
 }
 
 .table th {
     background-color: #f8f9fa;
+    font-weight: 700;
+    font-size: 1.05rem;
 }
 
 .form-label {
@@ -36,7 +42,6 @@
     margin-top: 1rem;
 }
 
-/* Стили для мобильных устройств */
 @media (max-width: 768px) {
     .container-fluid {
         padding: 0.5rem;
@@ -53,4 +58,23 @@
     .mb-3 {
         margin-bottom: 0.5rem !important;
     }
+}
+
+body {
+    background: #fff;
+}
+
+.container-fluid {
+    background: #fff;
+    padding-right: 15px;
+    padding-left: 15px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0 0 8px 8px;
+}
+
+.navbar-brand,
+.navbar-nav .nav-link {
+    color: #222 !important;
+    font-weight: 800;
+    font-size: 1.2rem;
 }

@@ -81,6 +81,9 @@ let claimsTable = $("#claimsDataTable").DataTable({
       },
     },
   ],
+  scrollY: '60vh',
+  scrollCollapse: true,
+  fixedHeader: true
 });
 
 // Сохранение данных в localStorage
@@ -171,18 +174,48 @@ $("#cancelForm").on("click", function () {
 });
 
 // Обработка отправки упрощённой формы заявки
-$("#claimRequestFormContent").on("submit", function (e) {
+$("#claimRequestFormContent").on("submit", async function (e) {
   e.preventDefault();
   const formData = new FormData(this);
   const claimData = {
     contractor: formData.get("contractor") || "",
-    contract_number: formData.get("contractNumber") || "",
-    contract_date: formData.get("contractDate") || "",
-    amount_rub: formData.get("amountRub") || "",
-    amount_foreign: formData.get("amountForeign") || "",
+    contractNumber: formData.get("contractNumber") || "",
+    contractDate: formData.get("contractDate") || "",
+    amountRub: formData.get("amountRub") || "",
+    amountForeign: formData.get("amountForeign") || "",
     currency: formData.get("currency") || "",
     requirement: formData.get("requirement") || "",
-    documents_link: formData.get("documentsLink") || "",
+    documentsLink: formData.get("documentsLink") || ""
+  };
+
+  // Отправка email через локальный сервер Flask
+  try {
+    const response = await fetch("http://127.0.0.1:5000/send-claim-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(claimData)
+    });
+    const result = await response.json();
+    if (result.success) {
+      alert("Заявка успешно подана и уведомление по email доставлено!");
+    } else {
+      alert("Заявка отправлена, но уведомление по email не доставлено.");
+    }
+  } catch (error) {
+    console.error("Email notification error:", error);
+    alert("Ошибка отправки email");
+  }
+
+  // Сохраняем заявку локально и обновляем таблицу
+  claimsTable.row.add({
+    contractor: claimData.contractor,
+    contract_number: claimData.contractNumber,
+    contract_date: claimData.contractDate,
+    amount_rub: claimData.amountRub,
+    amount_foreign: claimData.amountForeign,
+    currency: claimData.currency,
+    requirement: claimData.requirement,
+    documents_link: claimData.documentsLink,
     claim_number: "",
     claim_date: "",
     responsible_employee: "",
@@ -195,20 +228,14 @@ $("#claimRequestFormContent").on("submit", function (e) {
     case_number: "",
     lawsuit_result: "",
     comments: "",
-    result: "pending",
-  };
-  claimsTable.row.add(claimData).draw();
+    result: "pending"
+  }).draw();
   saveClaimsToStorage();
   $("#claimRequestForm").hide();
   $("#claimsTable").show();
   showAlert(
     "Заявка успешно подана и ожидает распределения задачи начальником юридического отдела.",
-    "success",
-  );
-  sendEmailNotification(
-    "bulanov.ds@infobm.ru",
-    "Новая заявка на подготовку претензии",
-    `Поступила новая заявка на подготовку претензии по контрагенту: ${claimData.contractor}. Проверьте реестр для распределения задачи.`,
+    "success"
   );
 });
 
@@ -443,22 +470,14 @@ $(function () {
 // Инициализация таблицы при запуске
 loadClaims();
 
-// Кнопка 'Список претензий' всегда возвращает к таблице
-$("#showClaims").on("click", function () {
+// Явная обработка клика по 'Реестр претензий'
+$("#showClaims").on("click", function (e) {
+  e.preventDefault();
   $("#claimForm").hide();
   $("#claimRequestForm").hide();
   $("#claimsTable").show();
+  $("#yearFilterRow").show();
 });
-
-// Глобальная обработка для всех навигационных ссылок, кроме addClaim
-$(".navbar .nav-link")
-  .not("#addClaim")
-  .on("click", function () {
-    $("#claimForm").hide();
-    $("#claimRequestForm").hide();
-    $("#claimsTable").show();
-    $("#yearFilterRow").show();
-  });
 
 // --- Фильтрация по годам ---
 function getYearsFromClaims() {
@@ -486,29 +505,27 @@ function updateYearFilter() {
     select.val(years[0]);
   }
 }
-function filterByYear(year) {
-  claimsTable.rows().every(function () {
-    const data = this.data();
-    if (!data.claim_date) {
-      $(this.node()).show();
-      return;
-    }
-    const rowYear = new Date(data.claim_date).getFullYear();
-    if (rowYear == year) {
-      $(this.node()).show();
-    } else {
-      $(this.node()).hide();
-    }
-  });
-}
-$("#yearFilter").on("change", function () {
-  filterByYear($(this).val());
+
+// --- Кастомная фильтрация по году ---
+$.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+  const selectedYear = $('#yearFilter').val();
+  const claimDate = data[1]; // Индекс столбца "Дата претензии" (dd/mm/yyyy)
+  if (!selectedYear) return true;
+  if (!claimDate) return true;
+  const parts = claimDate.split('/');
+  if (parts.length !== 3) return true;
+  const year = parts[2];
+  return year === selectedYear;
 });
-// После загрузки данных обновляем фильтр и применяем фильтрацию
+
+$("#yearFilter").on("change", function () {
+  claimsTable.draw();
+});
+
+// После загрузки данных обновляем фильтр и просто вызываем claimsTable.draw()
 function afterClaimsUpdate() {
   updateYearFilter();
-  const year = $("#yearFilter").val();
-  if (year) filterByYear(year);
+  claimsTable.draw();
 }
 
 // --- Функция форматирования даты в дд/мм/гггг ---
@@ -521,3 +538,41 @@ function formatDateDDMMYYYY(dateStr) {
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
 }
+
+// --- Логика для чекбоксов 'Нет договора' ---
+$(function () {
+  // Форма подачи заявки
+  $('#noContractRequest').on('change', function () {
+    const input = $('#contractNumberRequest');
+    if (this.checked) {
+      input.val('').prop('disabled', true).prop('required', false);
+    } else {
+      input.prop('disabled', false).prop('required', true);
+    }
+  });
+  $('#noContractDateRequest').on('change', function () {
+    const input = $('#contractDateRequest');
+    if (this.checked) {
+      input.val('').prop('disabled', true).prop('required', false);
+    } else {
+      input.prop('disabled', false).prop('required', true);
+    }
+  });
+  // Форма редактирования
+  $('#noContractEdit').on('change', function () {
+    const input = $('#contractNumberEdit');
+    if (this.checked) {
+      input.val('').prop('disabled', true).prop('required', false);
+    } else {
+      input.prop('disabled', false).prop('required', true);
+    }
+  });
+  $('#noContractDateEdit').on('change', function () {
+    const input = $('#contractDateEdit');
+    if (this.checked) {
+      input.val('').prop('disabled', true).prop('required', false);
+    } else {
+      input.prop('disabled', false).prop('required', true);
+    }
+  });
+});
