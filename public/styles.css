@@ -1,3 +1,57 @@
+:root {
+    --nav-bg: #1A237E;
+    --nav-accent: #3949AB;
+    --nav-highlight: #FFD600;
+    --page-bg: #F4F6FA;
+    --card-bg: #fff;
+    --text-main: #212121;
+    --divider: #E0E0E0;
+}
+
+body {
+    background: var(--page-bg) !important;
+    color: var(--text-main);
+}
+
+.navbar,
+.navbar .container-fluid {
+    background: linear-gradient(90deg, #2563EB 0%, #1E40AF 100%) !important;
+    color: #fff !important;
+    font-weight: 600;
+    padding: 12px 24px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand,
+.navbar-nav .nav-link {
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 1.2rem;
+    text-shadow: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.navbar-nav .nav-link.active,
+.navbar-nav .nav-link:focus,
+.navbar-nav .nav-link:hover {
+    color: var(--nav-highlight) !important;
+    background: var(--nav-accent) !important;
+}
+
+.container-fluid.mt-4,
+.card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.08);
+    color: var(--text-main);
+}
+
+hr,
+.table th,
+.table td {
+    border-color: var(--divider) !important;
+}
+
 .navbar {
     margin-bottom: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -60,10 +114,6 @@
     }
 }
 
-body {
-    background: #fff;
-}
-
 .container-fluid {
     background: #fff;
     padding-right: 15px;
@@ -72,9 +122,183 @@ body {
     border-radius: 0 0 8px 8px;
 }
 
-.navbar-brand,
-.navbar-nav .nav-link {
-    color: #222 !important;
-    font-weight: 800;
-    font-size: 1.2rem;
+/* Очищенные и оптимизированные стили для таблицы претензий */
+#claimsDataTable {
+    border-collapse: collapse !important;
+    width: 100%;
+    background: #fff;
+    table-layout: fixed;
+}
+
+#claimsDataTable th,
+#claimsDataTable td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid #E5E7EB !important;
+    background: #fff;
+    font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#claimsDataTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8f9fa;
+    font-weight: 700;
+}
+
+#claimsDataTable th:nth-child(1),
+#claimsDataTable td:nth-child(1) {
+    width: 80px;
+}
+
+#claimsDataTable th:nth-child(2),
+#claimsDataTable td:nth-child(2) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(3),
+#claimsDataTable td:nth-child(3) {
+    width: 120px;
+}
+
+#claimsDataTable th:nth-child(4),
+#claimsDataTable td:nth-child(4) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(5),
+#claimsDataTable td:nth-child(5) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(6),
+#claimsDataTable td:nth-child(6) {
+    width: 120px;
+}
+
+#claimsDataTable th:nth-child(7),
+#claimsDataTable td:nth-child(7) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(8),
+#claimsDataTable td:nth-child(8) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(9),
+#claimsDataTable td:nth-child(9) {
+    width: 70px;
+}
+
+#claimsDataTable th:nth-child(10),
+#claimsDataTable td:nth-child(10) {
+    width: 110px;
+}
+
+#claimsDataTable th:nth-child(11),
+#claimsDataTable td:nth-child(11) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(12),
+#claimsDataTable td:nth-child(12) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(13),
+#claimsDataTable td:nth-child(13) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(14),
+#claimsDataTable td:nth-child(14) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(15),
+#claimsDataTable td:nth-child(15) {
+    width: 110px;
+}
+
+#claimsDataTable th:nth-child(16),
+#claimsDataTable td:nth-child(16) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(17),
+#claimsDataTable td:nth-child(17) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(18),
+#claimsDataTable td:nth-child(18) {
+    width: 90px;
+}
+
+#claimsDataTable th:nth-child(19),
+#claimsDataTable td:nth-child(19) {
+    width: 110px;
+}
+
+#claimsDataTable th:nth-child(20),
+#claimsDataTable td:nth-child(20) {
+    width: 120px;
+}
+
+#claimsDataTable th:nth-child(21),
+#claimsDataTable td:nth-child(21) {
+    width: 110px;
+}
+
+#claimsDataTable.table-striped>tbody>tr:nth-of-type(odd)>* {
+    background-color: #fff !important;
+}
+
+#claimsTable .card-body {
+    overflow-x: auto;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    #claimsDataTable {
+        font-size: 12px;
+    }
+}
+
+/* --- Кастомные кнопки для действий --- */
+.btn-primary-custom {
+    background: #2563EB !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-primary-custom:hover,
+.btn-primary-custom:focus {
+    background: #1e50c2 !important;
+    /* #2563EB затемнён на ~10% */
+    color: #fff !important;
+}
+
+.btn-secondary-custom {
+    background: #fff !important;
+    color: #2563EB !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 6px !important;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-secondary-custom:hover,
+.btn-secondary-custom:focus {
+    background: #f3f6fb !important;
+    /* #fff затемнён на ~10% */
+    color: #2563EB !important;
 }
