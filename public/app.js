@@ -388,7 +388,9 @@ function toDDMMYYYY(input) {
   if (input.includes('/')) return input; // уже в нужном формате
   const [year, month, day] = input.split('-');
   if (!year || !month || !day) return input;
-  return `${day}/${month}/${year}`;
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  return `${dd}/${mm}/${year}`;
 }
 
 // --- Функция для преобразования даты из dd/mm/yyyy в yyyy-mm-dd (для сохранения) ---
@@ -397,7 +399,9 @@ function toYYYYMMDD(input) {
   if (input.includes('-')) return input; // уже в нужном формате
   const [day, month, year] = input.split('/');
   if (!year || !month || !day) return input;
-  return `${year}-${month}-${day}`;
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  return `${year}-${mm}-${dd}`;
 }
 
 // --- Инициализация bootstrap-datepicker для всех дат ---
