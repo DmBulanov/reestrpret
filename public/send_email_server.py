@@ -14,7 +14,7 @@ SMTP_USER = os.environ.get('YANDEX_USER', 'bulmitya@yandex.ru')
 SMTP_PASSWORD = os.environ.get('YANDEX_PASSWORD', 'phkjbyabxtncllze')
 TO_EMAIL = 'bulanov.ds@infobm.ru'
 
-if app.debug:
+if getattr(app, 'debug', False):
     # Выводим параметры только в режиме отладки
     print(f"SMTP_USER: {SMTP_USER}")
     print(f"TO_EMAIL: {TO_EMAIL}")
