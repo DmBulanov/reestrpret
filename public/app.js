@@ -180,7 +180,7 @@ $("#claimRequestFormContent").on("submit", async function (e) {
   const claimData = {
     contractor: formData.get("contractor") || "",
     contractNumber: formData.get("contractNumber") || "",
-    contractDate: formData.get("contractDate") || "",
+    contractDate: toYYYYMMDD(formData.get("contractDate") || ""),
     amountRub: formData.get("amountRub") || "",
     amountForeign: formData.get("amountForeign") || "",
     currency: formData.get("currency") || "",
