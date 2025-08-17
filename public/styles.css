@@ -302,3 +302,31 @@ hr,
     /* #fff затемнён на ~10% */
     color: #2563EB !important;
 }
+
+/* Actions column: keep both buttons visible */
+.dt-actions-wrap {
+  display: flex;
+  gap: .5rem;
+  justify-content: flex-end;
+  align-items: center;
+  white-space: nowrap;
+}
+th.dt-actions, td.dt-actions { min-width: 240px !important; }
+#claimsDataTable td.dt-actions { overflow: visible !important; }
+
+
+/* Столбец 'Действия' выравнивание по левому краю */
+.actions-column {
+    text-align: left !important;
+}
+
+
+/* Force left alignment for the Actions column header + cells */
+table#claimsDataTable th.actions-column,
+table#claimsDataTable td.actions-column {
+  text-align: left !important;
+}
+
+/* Ensure buttons inside are aligned to the left */
+.dt-actions-wrap { justify-content: flex-start !important; }
+
