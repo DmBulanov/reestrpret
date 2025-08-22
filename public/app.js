@@ -88,10 +88,11 @@ $(document).ready(function () {
         orderable: false,
         searchable: false,
         render: function (data, type, row) {
+          const id = row.id || row.claim_id || '';
           return `
                     <div class="dt-actions-wrap">
-      <button class="btn btn-sm btn-primary edit-claim" data-id="${row.id || ""}">Редактировать</button>
-                    <button class="btn btn-sm btn-danger delete-claim" data-id="${row.id || ""}">Удалить</button>
+      <button class="btn btn-sm btn-primary edit-claim" data-id="${id}">Редактировать</button>
+                    <button class="btn btn-sm btn-danger btn-delete" data-id="${id}">Удалить</button>
     </div>
                 `;
         },
@@ -102,9 +103,14 @@ $(document).ready(function () {
     fixedHeader: false
   });
 
+  // Флаг: использовать ли серверный API для удаления/обновления (по умолчанию локально)
+  const API_DELETE_ENABLED = false;
+
   // Сохранение данных в localStorage
   function saveClaimsToStorage() {
     const data = getClaimsTable() && getClaimsTable().rows().data().toArray();
+    // гарантируем наличие id у каждой записи
+    data.forEach((row) => { if (!row.id) row.id = generateId(); });
     localStorage.setItem("claims", JSON.stringify(data));
     afterClaimsUpdate();
   }
@@ -114,6 +120,7 @@ $(document).ready(function () {
     const saved = localStorage.getItem("claims");
     if (saved) {
       const claims = JSON.parse(saved);
+      claims.forEach((row) => { if (!row.id) row.id = generateId(); });
       claimsTable.clear().rows.add(claims).draw();
     } else {
       claimsTable.clear().draw();
@@ -163,11 +170,19 @@ $(document).ready(function () {
     $("#yearFilterRow").hide();
   });
 
-  // Открытие полной формы для редактирования
+  // Открытие полной формы для редактирования (универсальная)
   $("#claimsDataTable").on("click", ".edit-claim", function () {
     const row = $(this).closest("tr");
-    const rowData = claimsTable.row(row).data();
-    fillForm(rowData);
+    const rowData = claimsTable.row(row).data() || {};
+    // гарантируем наличие id у записи
+    if (!rowData.id) {
+      rowData.id = generateId();
+      claimsTable.row(row).data(rowData).draw(false);
+      saveClaimsToStorage();
+    }
+    window.currentEditingId = rowData.id;
+    const camel = snakeToCamelRecord(rowData);
+    fillEditForm(camel);
     $("#claimForm").show();
     $("#claimsTable").hide();
     $("#claimRequestForm").hide();
@@ -255,86 +270,263 @@ $(document).ready(function () {
     );
   });
 
-  // Обработка отправки полной формы редактирования
-
-  // Обработка отправки полной формы редактирования (патч)
-  $("#claimFormContent").off("submit").on("submit", function (e) {
-    e.preventDefault();
-    if (typeof saveEditedRowFromForm === "function") {
-      try { saveEditedRowFromForm(); } catch (err) { console.error(err); alert("Ошибка сохранения формы: " + err.message); }
-    } else {
-      alert("saveEditedRowFromForm() не найдена");
-    }
-  });
-
-
-  // --- Helpers for edit/save ---
-  function normalizeClaimFormData(formData) {
-    // convert dd/mm/yyyy -> yyyy-mm-dd for fields with placeholder
-    const get = (n) => formData.get(n) || "";
-    function normDate(name) {
-      const v = get(name);
-      if (!v) return "";
-      const m = v.match(/^(\d{2})[\.\/-](\d{2})[\.\/-](\d{4})$/);
-      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-      return v;
-    }
-    return {
-      claim_number: get("claimNumber"),
-      claim_date: normDate("claimDate"),
-      contractor: get("contractor"),
-      contract_number: get("contractNumber"),
-      contract_date: normDate("contractDate"),
-      requirement: get("requirement"),
-      amount_rub: get("amountRub"),
-      amount_foreign: get("amountForeign"),
-      currency: get("currency"),
-      responsible_employee: get("responsibleEmployee"),
-      sent_date: normDate("sentDate"),
-      received_date: normDate("receivedDate"),
-      payment_date: normDate("paymentDate"),
-      paid_amount: get("paidAmount"),
-      transfer_to_legal_date: normDate("transferToLegalDate"),
-      lawsuit_date: normDate("lawsuitDate"),
-      case_number: get("caseNumber"),
-      result: get("result"),
-      lawsuit_result: get("lawsuitResult"),
-      comments: get("comments"),
-      documents_link: get("documentsLink"),
-    };
-  }
-
-  function saveEditedRowFromForm() {
-    const api = getClaimsTable();
-    if (!api) { alert("Таблица ещё не инициализирована"); return; }
-    const editingRow = $("#claimFormContent").data("editingRow");
-    if (!editingRow || !editingRow.length) { alert("Не найдена редактируемая строка"); return; }
-    const formData = new FormData(document.getElementById("claimFormContent"));
-    const claimData = normalizeClaimFormData(formData);
-    api.row(editingRow).data(claimData).draw(false);
-    $("#claimFormContent").removeData("editingRow");
-    saveClaimsToStorage();
-    $("#claimForm").hide(); $("#claimsTable").show(); $("#yearFilterRow").show();
-    showAlert("Данные претензии успешно обновлены.", "success");
-  }
-
   // Обработка отправки формы редактирования
-  $("#claimFormContent").off("submit").on("submit", function (e) {
+  $("#claimFormContent").off("submit").on("submit", onEditSave);
+
+
+  // --- Универсальные функции и маппинг полей ---
+  function generateId() {
+    return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  const snakeToCamelMap = {
+    id: 'claimId',
+    claim_number: 'claimNumber',
+    claim_date: 'claimDate',
+    contractor: 'contractor',
+    contract_number: 'contractNumber',
+    contract_date: 'contractDate',
+    amount_rub: 'amountRub',
+    amount_foreign: 'amountCur',
+    currency: 'currency',
+    requirement: 'demand',
+    responsible_employee: 'responsible',
+    sent_date: 'sentDate',
+    received_date: 'receivedDate',
+    result: 'result',
+    payment_date: 'payDate',
+    paid_amount: 'paidAmount',
+    transfer_to_legal_date: 'toLegalDate',
+    lawsuit_date: 'lawsuitDate',
+    case_number: 'caseNumber',
+    lawsuit_result: 'decisionResult',
+    comments: 'comments',
+    documents_link: 'docsLink',
+  };
+
+  const camelToSnakeMap = Object.fromEntries(Object.entries(snakeToCamelMap).map(([s, c]) => [c, s]));
+
+  function snakeToCamelRecord(row) {
+    const out = {};
+    Object.keys(snakeToCamelMap).forEach((s) => {
+      const c = snakeToCamelMap[s];
+      out[c] = row && row[s] != null ? row[s] : '';
+    });
+    // поддержка legacy ключей
+    if (!out.claimId && row && row.claim_id) out.claimId = row.claim_id;
+    return out;
+  }
+
+  function camelToSnakeRecord(rec) {
+    const out = {};
+    Object.keys(camelToSnakeMap).forEach((c) => {
+      const s = camelToSnakeMap[c];
+      out[s] = rec && rec[c] != null ? rec[c] : '';
+    });
+    if (rec && rec.claimId && !out.id) out.id = rec.claimId;
+    return out;
+  }
+
+  // Конвертация дат для текстовых инпутов с placeholder 'дд/мм/гггг'
+  function toInputDDMMYYYY(value) {
+    return typeof toDDMMYYYY === 'function' ? toDDMMYYYY(value) : value || '';
+  }
+  function fromInputDDMMYYYY(value) {
+    return typeof toYYYYMMDD === 'function' ? toYYYYMMDD(value) : value || '';
+  }
+
+  // Заполнить форму данными записи (camelCase по data-field)
+  function fillEditForm(record) {
+    const form = document.querySelector('#claimFormContent') || document;
+    form.querySelectorAll('[data-field]').forEach((el) => {
+      const key = el.dataset.field;
+      let val = record && Object.prototype.hasOwnProperty.call(record, key) ? record[key] : '';
+      if (el.getAttribute('placeholder') === 'дд/мм/гггг') val = toInputDDMMYYYY(val);
+      if (el.type === 'checkbox') {
+        el.checked = Boolean(val);
+      } else {
+        el.value = val == null ? '' : val;
+      }
+    });
+  }
+
+  // Считать запись из формы (camelCase по data-field)
+  function readRecordFromForm() {
+    const form = document.querySelector('#claimFormContent') || document;
+    const rec = {};
+    form.querySelectorAll('[data-field]').forEach((el) => {
+      const key = el.dataset.field;
+      let val;
+      if (el.type === 'checkbox') {
+        val = el.checked;
+      } else {
+        val = (el.value || '').trim();
+        if (el.getAttribute('placeholder') === 'дд/мм/гггг') val = fromInputDDMMYYYY(val);
+      }
+      rec[key] = val;
+    });
+    return rec;
+  }
+
+  function getAllClaims() {
+    return (getClaimsTable() && getClaimsTable().rows().data().toArray()) || [];
+  }
+  function getRecordById(id) {
+    const list = getAllClaims();
+    return list.find((r) => r && (r.id === id || r.claim_id === id)) || null;
+  }
+  function findIndexById(list, id) {
+    return list.findIndex((r) => r && (r.id === id || r.claim_id === id));
+  }
+  function loadClaimsArray() {
+    try { return JSON.parse(localStorage.getItem('claims') || '[]'); } catch (_) { return []; }
+  }
+  function saveClaims(list) {
+    localStorage.setItem('claims', JSON.stringify(list));
+    claimsTable.clear().rows().add(list).draw(false);
+    afterClaimsUpdate();
+  }
+  function refreshTable() {
+    claimsTable.draw(false);
+    afterClaimsUpdate();
+  }
+  function closeEditForm() {
+    $("#claimForm").hide(); $("#claimsTable").show(); $("#yearFilterRow").show();
+  }
+  function getCurrentEditingId() {
+    const hid = document.getElementById('claimId');
+    return (hid && hid.value) || window.currentEditingId || null;
+  }
+
+  // Сохранение (универсальное, мягкое слияние)
+  function onEditSave(e) {
+    e && e.preventDefault && e.preventDefault();
+    const updatedCamel = readRecordFromForm();
+    const id = updatedCamel.claimId || getCurrentEditingId();
+    if (!id) { alert('Не найден идентификатор записи'); return; }
+    const prevSnake = getRecordById(id);
+    if (!prevSnake) { alert('Запись не найдена'); return; }
+
+    const prevCamel = snakeToCamelRecord(prevSnake);
+
+    // явное очищение полей при чекбоксах "Нет договора"
+    const explicitClears = new Set();
+    const noNum = document.getElementById('noContractEdit');
+    const noDate = document.getElementById('noContractDateEdit');
+    if (noNum && noNum.checked) explicitClears.add('contractNumber');
+    if (noDate && noDate.checked) explicitClears.add('contractDate');
+
+    const mergedCamel = { ...prevCamel };
+    Object.keys(updatedCamel).forEach((k) => {
+      const v = updatedCamel[k];
+      if (k === 'claimId') { mergedCamel[k] = id; return; }
+      if (explicitClears.has(k)) { mergedCamel[k] = ''; return; }
+      if (v !== '' && v != null) { mergedCamel[k] = v; }
+    });
+
+    const mergedSnake = camelToSnakeRecord(mergedCamel);
+
+    // Обновляем строку в таблице
+    const api = getClaimsTable();
+    const rows = api.rows().indexes().toArray();
+    for (let i = 0; i < rows.length; i++) {
+      const data = api.row(rows[i]).data();
+      if (data && (data.id === id || data.claim_id === id)) {
+        api.row(rows[i]).data(mergedSnake).draw(false);
+        break;
+      }
+    }
+    saveClaimsToStorage();
+    refreshTable();
+    closeEditForm();
+    showAlert('Данные претензии успешно обновлены.', 'success');
+  }
+
+  // --- modal helpers ---
+  const modalEl = document.getElementById('confirmDeleteModal');
+  let deleteModal = null;
+  let pendingDeleteId = null;
+
+  function ensureDeleteModal() {
+    if (typeof bootstrap !== 'undefined' && modalEl && !deleteModal) {
+      deleteModal = new bootstrap.Modal(modalEl);
+    }
+    return deleteModal;
+  }
+
+  async function deleteRecord(id) {
+    if (!id) return;
+    if (API_DELETE_ENABLED && typeof deleteRecordOnServer === 'function') {
+      await deleteRecordOnServer(id);
+    } else {
+      // Удаляем напрямую из DataTable и синхронизируем localStorage
+      const api = getClaimsTable();
+      if (!api) return;
+      const idxs = api.rows().indexes().toArray();
+      for (let i = 0; i < idxs.length; i++) {
+        const d = api.row(idxs[i]).data();
+        if (d && (d.id === id || d.claim_id === id)) {
+          api.row(idxs[i]).remove();
+          api.draw(false);
+          saveClaimsToStorage();
+          break;
+        }
+      }
+    }
+  }
+
+  async function deleteRecordOnServer(id) {
+    const res = await fetch(`/api/claims/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Delete failed');
+  }
+
+  function buildConfirmText(rec, fallbackId) {
+    const idShown = fallbackId || '';
+    const num = (rec && (rec.claim_number || rec.claimNumber || rec.number)) || '';
+    const demand = (rec && (rec.requirement || rec.demand || rec.title)) || '';
+    if (idShown || demand) {
+      return `Вы уверены, что хотите удалить запись ${num ? `№ ${num}` : (idShown ? `id ${idShown}` : '')}${(num || idShown) && demand ? ' — ' : ''}${demand ? `«${demand}»` : ''}?`;
+    }
+    return 'Вы уверены, что хотите удалить запись?';
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;
     e.preventDefault();
-    try {
-      saveEditedRowFromForm();
-    } catch (err) {
-      console && console.error && console.error(err);
-      alert("Не удалось сохранить изменения: " + err.message);
+    const id = btn.dataset.id || btn.getAttribute('data-id');
+    pendingDeleteId = id;
+    const rec = getRecordById(id);
+    const textEl = document.getElementById('confirmDeleteText');
+    if (textEl) textEl.textContent = buildConfirmText(rec, id);
+    const modal = ensureDeleteModal();
+    if (modal) {
+      modal.show();
+    } else {
+      if (window.confirm(textEl && textEl.textContent || 'Удалить запись?')) {
+        confirmDeleteYesHandler();
+      }
     }
   });
+
+  async function confirmDeleteYesHandler() {
+    if (!pendingDeleteId) return;
+    try {
+      await deleteRecord(pendingDeleteId);
+      pendingDeleteId = null;
+      if (deleteModal) deleteModal.hide();
+      // Таблица уже перерисована внутри deleteRecord через draw(false) и saveClaimsToStorage
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось удалить запись.');
+    }
+  }
+
+  document.getElementById('confirmDeleteYes') &&
+    document.getElementById('confirmDeleteYes').addEventListener('click', confirmDeleteYesHandler);
 
   // Удаление строки и сохранение
-  $("#claimsDataTable").on("click", ".delete-claim", function () {
-    const row = $(this).closest("tr");
-    claimsTable.row(row).remove().draw();
-    saveClaimsToStorage();
-  });
+  // handled via modal + delegated document click (see below)
 
   // --- Экспорт в Excel: всегда все претензии ---
   $("#exportExcel")
@@ -437,8 +629,11 @@ $(document).ready(function () {
 
   // --- Инициализация bootstrap-datepicker для всех дат ---
   $(function () {
-    $('input[type="text"][placeholder="дд/мм/гггг"]').datepicker({
-      format: 'dd/mm/yyyy',
+    $('input[type="text"][placeholder="дд.мм.гггг"], input[type="text"][placeholder="дд/мм/гггг"]').each(function () {
+      const v = $(this).val();
+      if (v && v.includes('/')) $(this).val(v.replaceAll('/', '.'));
+    }).datepicker({
+      format: 'dd.mm.yyyy',
       language: 'ru',
       autoclose: true,
       todayHighlight: true
@@ -448,30 +643,16 @@ $(document).ready(function () {
     });
   });
 
-  // --- При отправке форм преобразую даты обратно в yyyy-mm-dd ---
-  $('#claimFormContent, #claimRequestFormContent').on('submit', function (e) {
-    $(this).find('input[type="text"][placeholder="дд/мм/гггг"]').each(function () {
+  // --- При отправке упрощенной формы заявки конвертируем даты ---
+  $('#claimRequestFormContent').on('submit', function () {
+    $(this).find('input[type="text"][placeholder="дд.мм.гггг"], input[type="text"][placeholder="дд/мм/гггг"]').each(function () {
       const val = $(this).val();
-      if (val && val.includes('/')) {
-        $(this).val(toYYYYMMDD(val));
-      }
+      if (val && val.includes('/')) $(this).val(val.replaceAll('/', '.'));
+      if (val) $(this).val(toYYYYMMDD($(this).val()));
     });
   });
 
-  // --- Модифицирую fillForm, чтобы показывать даты в dd/mm/yyyy ---
-  function fillForm(claim) {
-    const form = $("#claimFormContent");
-    Object.keys(claim).forEach((key) => {
-      const input = form.find(`[name="${key}"]`);
-      if (input.length) {
-        if (input.attr('placeholder') === 'дд/мм/гггг') {
-          input.val(toDDMMYYYY(claim[key]));
-        } else {
-          input.val(claim[key]);
-        }
-      }
-    });
-  }
+  // fillForm больше не используется; теперь fillEditForm по data-field
 
   function showAlert(message, type) {
     $(".alert").remove(); // Удаляем все предыдущие алерты
@@ -522,8 +703,15 @@ function getYearsFromClaims() {
   const years = new Set();
   data.forEach((row) => {
     if (row.claim_date) {
-      const year = new Date(row.claim_date).getFullYear();
-      if (!isNaN(year)) years.add(year);
+      // Парсим дату из формата dd.mm.yyyy или ISO
+      let year;
+      if (row.claim_date.includes('.')) {
+        const parts = row.claim_date.split('.');
+        if (parts.length === 3) year = parseInt(parts[2]);
+      } else {
+        year = new Date(row.claim_date).getFullYear();
+      }
+      if (!isNaN(year) && year > 1900 && year < 2100) years.add(year);
     }
   });
   return Array.from(years).sort((a, b) => b - a);
@@ -533,23 +721,22 @@ function updateYearFilter() {
   const currentYear = new Date().getFullYear();
   const select = $("#yearFilter");
   select.empty();
+  // Добавляем опцию "Все годы" для показа всех записей
+  select.append('<option value="">Все годы</option>');
   years.forEach((year) => {
     select.append(`<option value="${year}">${year}</option>`);
   });
-  if (years.includes(currentYear)) {
-    select.val(currentYear);
-  } else if (years.length) {
-    select.val(years[0]);
-  }
+  // По умолчанию показываем все годы
+  select.val("");
 }
 
 // --- Кастомная фильтрация по году ---
 $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
   const selectedYear = $('#yearFilter').val();
-  const claimDate = data[1]; // Индекс столбца "Дата претензии" (dd/mm/yyyy)
+  const claimDate = data[1]; // Индекс столбца "Дата претензии" (dd.mm.yyyy)
   if (!selectedYear) return true;
   if (!claimDate) return true;
-  const parts = claimDate.split('/');
+  const parts = claimDate.split('.');
   if (parts.length !== 3) return true;
   const year = parts[2];
   return year === selectedYear;
@@ -568,12 +755,17 @@ function afterClaimsUpdate() {
 // --- Функция форматирования даты в дд/мм/гггг ---
 function formatDateDDMMYYYY(dateStr) {
   if (!dateStr) return '';
+  if (typeof dateStr === 'string' && dateStr.includes('/')) {
+    // нормализуем старые строки dd/mm/yyyy -> dd.mm.yyyy
+    const m = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return `${m[1]}.${m[2]}.${m[3]}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}.${month}.${year}`;
 }
 
 // --- Логика для чекбоксов 'Нет договора' ---
@@ -597,7 +789,7 @@ $(function () {
   });
   // Форма редактирования
   $('#noContractEdit').on('change', function () {
-    const input = $('#contractNumberEdit');
+    const input = $('#contractNumber');
     if (this.checked) {
       input.val('').prop('disabled', true).prop('required', false);
     } else {
@@ -605,7 +797,7 @@ $(function () {
     }
   });
   $('#noContractDateEdit').on('change', function () {
-    const input = $('#contractDateEdit');
+    const input = $('#contractDate');
     if (this.checked) {
       input.val('').prop('disabled', true).prop('required', false);
     } else {
